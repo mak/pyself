@@ -1,3 +1,4 @@
+BITS 32
 ;;;
 ;;; whole payload:
 ;;;  - get listptr
@@ -56,19 +57,19 @@
 
 
 pre_loader:
-	call _data
+	jmp _data
 
 loader:
 	pop ebp			; ebp holds pointer to begin of my list
 
 _load_next:
-
-	mov eax,[ebp+TYPE_OFF]	; type -- only matter at begining
-	test eax, LOAD_TYPE
+	xor eax,eax
+	mov ax, word [ebp+TYPE_OFF]	; type -- only matter at begining
+	cmp eax, LOAD_TYPE
 	je _set_load
-	test eax, STACK_TYPE
+	cmp eax, STACK_TYPE
 	je _set_stack
-	test eax, ENTRY_TYPE
+	cmp eax, ENTRY_TYPE
 	je _entryp
 	;; die
 	jmp _exit
@@ -100,11 +101,8 @@ _set_load:
 	mov edi, [ebp + VADDR_OFF]
 	mov ecx, [ebp + SIZE_OFF ]
 	repz movsb
+	jmp _next_chunk
 
-	;; netx chunk
-	lea eax, [ebp + HDR_SIZE]
-	lea ebp, [eax + SIZE_OFF]
-	jmp _load_next
 
 
 _set_stack:			; just copy data, i dont give a shit
@@ -113,7 +111,14 @@ _set_stack:			; just copy data, i dont give a shit
 	mov edi, [ebp + VADDR_OFF]
 	mov ecx, [ebp + SIZE_OFF ]
 	repz movsb
+	jmp _next_chunk
+
+_next_chunk:
+	lea eax, [ebp + HDR_SIZE]
+	mov ebx, [ebp + SIZE_OFF]
+	lea ebp, [eax + ebx]
 	jmp _load_next
+
 
 _entryp:
 	mov eax,[ebp + VADDR_OFF]
@@ -133,4 +138,4 @@ _exit:
 
 ;;; data is after this
 _data:
-	jmp loader
+	call loader

@@ -3,7 +3,7 @@ from ctypes import *
 
 libc = CDLL("libc.so.6")
 
-base_adddr = 0x2000
+base_adddr = 0x20000
 CFUNC = CFUNCTYPE(c_int,c_void_p)
 #x=libc.fork(None)
 
@@ -20,14 +20,15 @@ b = Builder('./foo',['a','b','c'],["PATH=/tmp/",'EVIL=dupa'])
 payload = b.payload()
 lpayload = (len(payload) + 0x1000) & ~(0x1000-1)
 
-print hex(lpayload)
+#import binascii
+#sys.stderr.write(payload[:200])
 
 x = libc.fork()
 if x == 0:
-    libc.sleep(100)
+    libc.sleep(15)
     addr = c_void_p(base_adddr)
     libc.mmap(addr,lpayload,7,0x32,0,0)
-    libc.memcpy(addr,payload,lpayload)
+    libc.memcpy(addr,payload,len(payload))
     cfun = cast(addr,CFUNC)
     cfun(addr)
     exit()

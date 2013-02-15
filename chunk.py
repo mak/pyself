@@ -66,20 +66,26 @@ class Chunk(object):
 
         self.stack = ph.align(stack_top)
 
-        return pack("I%s%s"%(sf,sf),self.STACK_TYPE,ph.align(stack_top),alen)+data
+        return pack('H',self.STACK_TYPE) + \
+               pack(sf*2,ph.align(stack_top),alen) + \
+               data
 
     def make_load(self,ph,sf):
         data = self.mem[ph.p_offset:ph.p_offset+ph.p_filesz]
         data += "\x00" * (ph.p_memsz - ph.p_filesz) ## .bss
-        return pack("H%s%s" % (sf,sf) \
-                   ,self.LOAD_TYPE,ph.p_vaddr,ph.aligned())+data
+        data += "\x00" * (ph.aligned() - ph.p_memsz)
+
+        return pack("H",self.LOAD_TYPE) + \
+               pack(sf*2,ph.p_vaddr,ph.aligned()) +\
+               data
+
 
     def make_entryp(self,ehdr,sf):
 
         if not self.stack:
             raise ValueError("Build stack first!")
 
-        return pack("I%s%s"%(sf,sf),self.ENTRY_TYPE,ehdr.e_entry,self.stack)
+        return pack("H",self.ENTRY_TYPE) + pack(sf*2,ehdr.e_entry,self.stack)
 
 
     def make_chunk(self,hdr):
