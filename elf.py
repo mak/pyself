@@ -1,11 +1,27 @@
 from struct import *
 
 
-## i dont realy care for rest right now
-PT_LOAD = 1
-PT_GNU_STACK = 0x6474e551
-
 class phdr(object):
+
+    PT_TYPE = {
+      0: 'PT_NULL'
+     ,1: 'PT_LOAD'
+     ,2: 'PT_DYNAMIC'
+     ,3: 'PT_INTERP'
+     ,4: 'PT_NOTE'
+     ,5: 'PT_SHLIB'
+     ,6: 'PT_PHDR'
+     ,7: 'PT_TLS'
+     ,8: 'PT_NUM'
+     ,0x6474e550: 'PT_GNU_EH_FRAME'
+     ,0x6474e551: 'PT_GNU_STACK'
+     ,0x6474e552: 'PT_GNU_RELRO'
+    }
+
+    PF_X = 1 << 0
+    PF_W = 1 << 1
+    PF_R = 1 << 2
+
     def __init__(self,addr,is32,endi):
         # extra
         self.address = addr
@@ -15,15 +31,19 @@ class phdr(object):
         self.p_type   = None
         self.p_offset = None
         self.p_vaddr  = None
+        self.p_paddr  = None
         self.p_filesz = None
         self.p_memsz  = None
         self.p_flags  = None
         self.p_align  = None
 
+        for k,v in self.PT_TYPE.items():
+            setattr(self,v,k)
+
     def parse(self,mem): # whole file
 
         fmt = self.endianes
-        if self.isx86:
+        if self.is32:
             fmt += 'IIIIIIII'
         else:
             fmt += 'IIQQQQQQ'
@@ -31,9 +51,11 @@ class phdr(object):
         ( self.p_type \
         , self.p_offset \
         , self.p_vaddr \
+        , self.p_paddr \
         , self.p_filesz \
         , self.p_memsz \
-        , self.palign \
+        , self.p_flags \
+        , self.p_align \
         ) = unpack_from(fmt,mem,self.address)
 
         if not self.is32: ## hacki-hacki
@@ -41,6 +63,40 @@ class phdr(object):
             self.p_flags = self.p_memsz
             self.p_memsz = tmp
 
+    def aligned(self,from_file = False):
+        ad = self.p_filesz if from_file else self.p_memsz
+        return self.align(ad)
+
+    def align(self,value):
+        a_s = self.p_align
+        am = ~(a_s-1)
+        return (value + a_s) & am
+
+    def prety_flag(self):
+        ret = ''
+        ret += "R" if self.p_flags & self.PF_R else ' '
+        ret += "W" if self.p_flags & self.PF_W else ' '
+        ret += "X" if self.p_flags & self.PF_X else ' '
+        return ret
+
+    def dump(self):
+
+        if not self.p_type:
+            return ""
+        ret = ''
+        ret += "%s\t"  % self.PT_TYPE[self.p_type]
+        ret += "%x   " % self.p_offset
+        ret += "%x   " % self.p_vaddr
+        ret += "%x   " % self.p_paddr
+        ret += "%x   " % self.p_filesz
+        ret += "%x   " % self.p_memsz
+        ret += "%s   " % self.prety_flag()
+        ret += "%x   " % self.p_align
+        return ret
+
+
+    def __str__(self):
+        return self.dump()
 
 class ehdr(object):
 
@@ -79,9 +135,7 @@ class ehdr(object):
         else:
             fmt += 'HHIQQQIHHHHHH'
 
-
-        (self.e_ident     \
-        ,self.e_type      \
+        (self.e_type      \
         ,self.e_machine   \
         ,self.e_version   \
         ,self.e_entry     \
@@ -96,10 +150,11 @@ class ehdr(object):
         ,self.e_shstrndx  \
         ) = unpack_from(fmt,nmem,16)
 
+        return self
 
     def enum_phdr(self):
 
-        if not self.e_ident and not self.mem:
+        if not self.e_ident and self.mem:
             self.parse(self.mem)
 
         if not self.e_ident:
@@ -108,8 +163,10 @@ class ehdr(object):
 
         for i in range(0,self.e_phnum):
 
-            addr = self.e_phoff + (i*self.e_phoff)
+            addr = self.e_phoff + (i*self.e_phentsize)
+            #print "phdr @ %x" % addr
+
             ph = phdr(addr,self.is32,self.endines)
-            ph.parse(mem)
+            ph.parse(self.mem)
 
             yield ph

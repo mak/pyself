@@ -1,21 +1,38 @@
-#import sys
+import sys,os
 from ctypes import *
 
 libc = CDLL("libc.so.6")
 
 base_adddr = 0x2000
 CFUNC = CFUNCTYPE(c_int,c_void_p)
-x=libc.fork(None)
+#x=libc.fork(None)
 
+MYSELF = os.path.abspath(os.path.expanduser(__file__))
+if os.path.islink(MYSELF):
+    HEAPFILE = os.readlink(MYSELF)
+sys.path.append(os.path.dirname(MYSELF))
+
+from builder import Builder
+
+
+
+b = Builder('./foo',['a','b','c'],["PATH=/tmp/",'EVIL=dupa'])
+payload = b.payload()
+lpayload = (len(payload) + 0x1000) & ~(0x1000-1)
+
+print hex(lpayload)
+
+x = libc.fork()
 if x == 0:
-    print libc.getpid()
+    libc.sleep(100)
     addr = c_void_p(base_adddr)
-    libc.mmap(addr,1024,7,0x32,0,0)
-    libc.memcpy(addr,"\xcc\xcc\xcc",3)
+    libc.mmap(addr,lpayload,7,0x32,0,0)
+    libc.memcpy(addr,payload,lpayload)
     cfun = cast(addr,CFUNC)
     cfun(addr)
     exit()
 
 else:
-    print "Parent"
+    print "[Parent] Child pid: %d" % x
+    x=raw_input()
     exit()
