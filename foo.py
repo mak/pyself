@@ -3,7 +3,7 @@ from ctypes import *
 
 libc = CDLL("libc.so.6")
 
-base_adddr = 0x20000
+base_adddr = 0x0219a000 #0x20000
 CFUNC = CFUNCTYPE(c_int,c_void_p)
 #x=libc.fork(None)
 
@@ -16,12 +16,14 @@ from builder import Builder
 
 
 
-b = Builder('./foo',['a','b','c'],["PATH=/tmp/",'EVIL=dupa'])
+b = Builder('./foo'+sys.argv[1]         \
+           ,['a','b','c']               \
+           ,["PATH=/tmp/",'EVIL=dupa']  \
+           )
+
 payload = b.payload()
 lpayload = (len(payload) + 0x1000) & ~(0x1000-1)
-
-#import binascii
-#sys.stderr.write(payload[:200])
+#exit()
 
 x = libc.fork()
 if x == 0:

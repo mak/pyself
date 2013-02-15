@@ -41,34 +41,37 @@ class phdr(object):
             setattr(self,v,k)
 
     def parse(self,mem): # whole file
-
         fmt = self.endianes
         if self.is32:
             fmt += 'IIIIIIII'
+            ( self.p_type \
+            , self.p_offset \
+            , self.p_vaddr \
+            , self.p_paddr \
+            , self.p_filesz \
+            , self.p_memsz \
+            , self.p_flags \
+            , self.p_align \
+            ) = unpack_from(fmt,mem,self.address)
+
         else:
             fmt += 'IIQQQQQQ'
+            ( self.p_type \
+            , self.p_flags \
+            , self.p_offset \
+            , self.p_vaddr \
+            , self.p_paddr \
+            , self.p_filesz \
+            , self.p_memsz \
+            , self.p_align \
+            ) = unpack_from(fmt,mem,self.address)
 
-        ( self.p_type \
-        , self.p_offset \
-        , self.p_vaddr \
-        , self.p_paddr \
-        , self.p_filesz \
-        , self.p_memsz \
-        , self.p_flags \
-        , self.p_align \
-        ) = unpack_from(fmt,mem,self.address)
-
-        if not self.is32: ## hacki-hacki
-            tmp = self.p_memsz
-            self.p_flags = self.p_memsz
-            self.p_memsz = tmp
-
-    def aligned(self,from_file = False):
+    def size(self,from_file = False):
         ad = self.p_filesz if from_file else self.p_memsz
         return self.align(ad)
 
     def align(self,value):
-        a_s = self.p_align
+        a_s = self.p_align if self.p_align < 0x1000 else 0x1000
         am = ~(a_s-1)
         return (value + a_s) & am
 

@@ -24,7 +24,7 @@ class Chunk(object):
     def make_stack(self,ph,sf):
 
         stack_top = 0xc0000000 if ph.is32 else 0x800000000000
-        data = [pack('I',len(self.argv))]
+        data = [pack(sf,len(self.argv))]
 
         stack_top -= ph.p_align
         tmpenv  = ["\x00"*ph.p_align]
@@ -73,10 +73,12 @@ class Chunk(object):
     def make_load(self,ph,sf):
         data = self.mem[ph.p_offset:ph.p_offset+ph.p_filesz]
         data += "\x00" * (ph.p_memsz - ph.p_filesz) ## .bss
-        data += "\x00" * (ph.aligned() - ph.p_memsz)
+        data += "\x00" * (ph.size() - ph.p_memsz)
 
+        addr = ph.align(ph.p_vaddr) - 0x1000 if ph.p_vaddr & 0xfff else ph.p_vaddr
+        data = "\x00" * (ph.p_vaddr-addr) + data
         return pack("H",self.LOAD_TYPE) + \
-               pack(sf*2,ph.p_vaddr,ph.aligned()) +\
+               pack(sf*2,addr,ph.size()+(ph.p_vaddr-addr)) +\
                data
 
 
